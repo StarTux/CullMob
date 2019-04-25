@@ -92,7 +92,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                                            + " " + is.x
                                            + "," + is.y
                                            + "," + is.z
-                                           + " " + (now - is.time) + " seconds ago.");
+                                           + " | " + (now - is.time) + " seconds ago.");
                     });
             return true;
         }

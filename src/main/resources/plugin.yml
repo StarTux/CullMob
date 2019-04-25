@@ -1,0 +1,20 @@
+main: com.cavetale.cullmob.CullMobPlugin
+name: CullMob
+version: 0.1
+api-version: 1.13
+description: Reduce large clusters of mobs
+author: StarTux
+website: https://cavetale.com
+depend: []
+softdepend: []
+commands:
+  cullmob:
+    description: CullMob Command
+    permission: cullmob.cullmob
+    usage: |-
+      /cullmob reload - Reload config.
+      /cullmob list - List recent actions.
+      /cullmob info - Show config info.
+permissions:
+  cullmob.cullmob:
+    description: Use /cullmob

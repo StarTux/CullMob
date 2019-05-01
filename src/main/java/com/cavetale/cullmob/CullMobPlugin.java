@@ -184,6 +184,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case PIG:
         case RABBIT:
         case SHEEP:
+	case VILLAGER:
             break;
         default:
             return;

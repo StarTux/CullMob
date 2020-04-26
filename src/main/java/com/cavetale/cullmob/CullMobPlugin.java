@@ -15,8 +15,11 @@ import org.bukkit.SoundCategory;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Ageable;
+import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
 import org.bukkit.event.EventHandler;
@@ -151,15 +154,42 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onCreatureSpawn(final CreatureSpawnEvent event) {
+        // White-list spawn reasons
         switch (event.getSpawnReason()) {
         case BREEDING:
         case DISPENSE_EGG:
         case EGG:
-            onBreed(event, event.getEntity());
+        case VILLAGE_DEFENSE: // sketchy
             break;
         default:
-            break;
+            return;
         }
+        // White-list mob types
+        final LivingEntity spawned = event.getEntity();
+        final EntityType entityType = spawned.getType();
+        switch (entityType) {
+        case CHICKEN:
+        case COW:
+        case MUSHROOM_COW:
+        case PIG:
+        case RABBIT:
+        case SHEEP:
+        case VILLAGER:
+        case BEE:
+        case TURTLE:
+        case LLAMA:
+        case WOLF:
+        case OCELOT:
+        case CAT:
+        case PANDA:
+        case IRON_GOLEM: // sketchy
+            break;
+        default:
+            if (spawned instanceof Animals) break;
+            if (spawned instanceof Ageable) break;
+            return;
+        }
+        onBreed(event, spawned);
     }
 
     static boolean compareEntities(final Entity a, final Entity b) {
@@ -204,25 +234,11 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             return false;
         }
         double r = this.breedingConfig.warnRadius;
-        return loc.getX() - (double) x <= r
-            && loc.getZ() - (double) z <= r;
+        return Math.abs(loc.getX() - (double) x) <= r
+            && Math.abs(loc.getZ() - (double) z) <= r;
     }
 
-    void onBreed(final CreatureSpawnEvent event, final Entity spawned) {
-        // White-list mob types
-        final EntityType entityType = spawned.getType();
-        switch (entityType) {
-        case CHICKEN:
-        case COW:
-        case MUSHROOM_COW:
-        case PIG:
-        case RABBIT:
-        case SHEEP:
-        case VILLAGER:
-            break;
-        default:
-            return;
-        }
+    void onBreed(final CreatureSpawnEvent event, final LivingEntity spawned) {
         // Check nearby mobs
         double r = this.breedingConfig.radius;
         long nearbyCount = spawned.getNearbyEntities(r, r, r)
@@ -241,6 +257,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         int y = loc.getBlockY();
         int z = loc.getBlockZ();
         long now = Instant.now().getEpochSecond();
+        EntityType entityType = spawned.getType();
         for (Iterator<IssuedWarning> it = this.issuedWarnings.iterator();
              it.hasNext();) {
             IssuedWarning warning = it.next();

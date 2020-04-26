@@ -260,7 +260,9 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         final double r = breedingConfig.maxRadius();
         final Location loc = spawned.getLocation();
         EntityType entityType = spawned.getType();
-        List<Double> nearbys = spawned.getNearbyEntities(r, r, r).stream()
+        List<Double> nearbys = loc.getWorld().getNearbyEntities(loc, r, r, r)
+            .stream()
+            .filter(n -> !n.equals(spawned))
             .filter(n -> compareEntities(spawned, n))
             .map(n -> loc.distance(n.getLocation()))
             .collect(Collectors.toList());

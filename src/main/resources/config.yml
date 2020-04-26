@@ -1,4 +1,5 @@
 breeding:
+  checks:
   - radius: 6
     limit: 100
   warnRadius: 32

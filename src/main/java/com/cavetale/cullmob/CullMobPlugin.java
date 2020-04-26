@@ -116,16 +116,16 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             return true;
         case "info":
             sender.sendMessage("Breeding: "
-                               + new Gson().toJson(this.breedingConfig));
+                               + new Gson().toJson(breedingConfig));
             return true;
         case "list": {
             if (args.length != 0) {
                 return false;
             }
             long now = Instant.now().getEpochSecond();
-            sender.sendMessage(this.issuedWarnings.size()
+            sender.sendMessage(issuedWarnings.size()
                                + " recent warnings:");
-            this.issuedWarnings.stream()
+            issuedWarnings.stream()
                 .forEach(is -> {
                         sender.sendMessage("- "
                                            + is.entityType + " at "
@@ -155,7 +155,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     void loadConf() {
         reloadConfig();
-        this.breedingConfig = loadConf("breeding", BreedingConfig.class);
+        breedingConfig = loadConf("breeding", BreedingConfig.class);
     }
 
     // Events
@@ -231,7 +231,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             || !warning.world.equals(world)) {
             return false;
         }
-        double r = this.breedingConfig.warnRadius;
+        double r = breedingConfig.warnRadius;
         return (double) Math.abs(warning.x - x) <= r
             && (double) Math.abs(warning.z - z) <= r;
     }
@@ -241,7 +241,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         if (!loc.getWorld().getName().equals(world)) {
             return false;
         }
-        double r = this.breedingConfig.warnRadius;
+        double r = breedingConfig.warnRadius;
         return Math.abs(loc.getX() - (double) x) <= r
             && Math.abs(loc.getZ() - (double) z) <= r;
     }
@@ -257,7 +257,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     void onBreed(final CreatureSpawnEvent event, final LivingEntity spawned) {
         // Check nearby mobs
-        final double r = this.breedingConfig.maxRadius();
+        final double r = breedingConfig.maxRadius();
         final Location loc = spawned.getLocation();
         EntityType entityType = spawned.getType();
         List<Double> nearbys = spawned.getNearbyEntities(r, r, r).stream()
@@ -287,17 +287,17 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         int y = loc.getBlockY();
         int z = loc.getBlockZ();
         long now = Instant.now().getEpochSecond();
-        for (Iterator<IssuedWarning> it = this.issuedWarnings.iterator();
+        for (Iterator<IssuedWarning> it = issuedWarnings.iterator();
              it.hasNext();) {
             IssuedWarning warning = it.next();
-            if (now - warning.time > this.breedingConfig.warnTimer) {
+            if (now - warning.time > breedingConfig.warnTimer) {
                 it.remove();
             } else if (nearby(warning, entityType, world, x, z)) {
                 return;
             }
         }
-        this.issuedWarnings.add(new IssuedWarning(entityType,
-                                                  world, x, y, z, now));
+        issuedWarnings.add(new IssuedWarning(entityType,
+                                             world, x, y, z, now));
         loc.getWorld().getPlayers().stream()
             .filter(p -> nearby(p.getLocation(), world, x, z))
             .forEach(p -> {

@@ -281,8 +281,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         event.setCancelled(true);
         getLogger().info("[Breeding] Denied " + human(entityType) + " at "
                          + toString(loc) + " due to check:"
-                         + "radius=" + (int) Math.ceil(failedCheck.radius)
-                         + "limit=" + failedCheck.limit);
+                         + " radius=" + (int) Math.ceil(failedCheck.radius)
+                         + " limit=" + failedCheck.limit);
         // Produce a warning.
         String world = loc.getWorld().getName();
         int x = loc.getBlockX();

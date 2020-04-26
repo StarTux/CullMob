@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Value;
@@ -58,11 +59,18 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
      * Configuration deserialized from config.yml.
      */
     @Value
-    static class BreedingConfig {
-        final double radius;
-        final int limit;
+    static final class BreedingConfig {
+        @Value
+        static final class Check {
+            final double radius;
+            final long limit;
+        }
+        List<Check> checks;
         final double warnRadius;
         final long warnTimer;
+        double maxRadius() {
+            return checks.stream().mapToDouble(c -> c.radius).max().orElse(0);
+        }
     }
 
     /**
@@ -238,26 +246,47 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             && Math.abs(loc.getZ() - (double) z) <= r;
     }
 
+    static String human(Enum e) {
+        return e.name().toLowerCase().replace("_", " ");
+    }
+
+    static String toString(Location loc) {
+        return loc.getWorld().getName() + ":"
+            + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
+    }
+
     void onBreed(final CreatureSpawnEvent event, final LivingEntity spawned) {
         // Check nearby mobs
-        double r = this.breedingConfig.radius;
-        long nearbyCount = spawned.getNearbyEntities(r, r, r)
-            .stream()
+        final double r = this.breedingConfig.maxRadius();
+        final Location loc = spawned.getLocation();
+        EntityType entityType = spawned.getType();
+        List<Double> nearbys = spawned.getNearbyEntities(r, r, r).stream()
             .filter(n -> compareEntities(spawned, n))
-            .count();
-        if (nearbyCount < this.breedingConfig.limit) {
-            return;
+            .map(n -> loc.distance(n.getLocation()))
+            .collect(Collectors.toList());
+        BreedingConfig.Check failedCheck = null;
+        for (BreedingConfig.Check check : breedingConfig.checks) {
+            long nearbyCount = nearbys.stream()
+                .filter(i -> i <= check.radius)
+                .count();
+            if (nearbyCount >= check.limit) {
+                failedCheck = check;
+                break;
+            }
         }
+        if (failedCheck == null) return;
         // Do the thing.
         event.setCancelled(true);
+        getLogger().info("[Breeding] Denied " + human(entityType) + " at "
+                         + toString(loc) + " due to check:"
+                         + "radius=" + (int) Math.ceil(failedCheck.radius)
+                         + "limit=" + failedCheck.limit);
         // Produce a warning.
-        Location loc = spawned.getLocation();
         String world = loc.getWorld().getName();
         int x = loc.getBlockX();
         int y = loc.getBlockY();
         int z = loc.getBlockZ();
         long now = Instant.now().getEpochSecond();
-        EntityType entityType = spawned.getType();
         for (Iterator<IssuedWarning> it = this.issuedWarnings.iterator();
              it.hasNext();) {
             IssuedWarning warning = it.next();
@@ -274,9 +303,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             .forEach(p -> {
                     p.sendMessage("" + ChatColor.RED
                                   + "A nearby "
-                                  + Arrays.stream(spawned.getType().name()
-                                                  .toLowerCase().split("_"))
-                                  .collect(Collectors.joining(" "))
+                                  + human(entityType)
                                   + " farm is getting out of hand."
                                   + " Spawning was denied.");
                     p.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH,

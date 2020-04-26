@@ -1,5 +1,5 @@
 breeding:
-  radius: 6
-  limit: 100
+  - radius: 6
+    limit: 100
   warnRadius: 32
   warnTimer: 30

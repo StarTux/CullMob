@@ -1,5 +1,6 @@
 package com.cavetale.cullmob;
 
+import com.destroystokyo.paper.event.entity.PreSpawnerSpawnEvent;
 import com.google.gson.Gson;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Value;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -21,6 +23,7 @@ import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
 import org.bukkit.event.EventHandler;
@@ -167,37 +170,42 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case BREEDING:
         case DISPENSE_EGG:
         case EGG:
-        case VILLAGE_DEFENSE: // sketchy
+        case BUILD_IRONGOLEM:
+        case BUILD_SNOWMAN:
+            onBreed(event, event.getEntity());
+            break;
+        case VILLAGE_DEFENSE:
+            if (event.getEntityType() == EntityType.IRON_GOLEM) {
+                onVillagerGolemSpawn(event);
+            }
             break;
         default:
             return;
         }
-        // White-list mob types
-        final LivingEntity spawned = event.getEntity();
-        final EntityType entityType = spawned.getType();
-        switch (entityType) {
-        case CHICKEN:
-        case COW:
-        case MUSHROOM_COW:
-        case PIG:
-        case RABBIT:
-        case SHEEP:
-        case VILLAGER:
-        case BEE:
-        case TURTLE:
-        case LLAMA:
-        case WOLF:
-        case OCELOT:
-        case CAT:
-        case PANDA:
-        case IRON_GOLEM: // sketchy
-            break;
-        default:
-            if (spawned instanceof Animals) break;
-            if (spawned instanceof Ageable) break;
-            return;
+    }
+
+    /**
+     * Deny spawner spawning if no nearby player affects mob spawning.
+     * Paper does not check `Player::getAffectsSpawning` for creature
+     * spawners.
+     */
+    @EventHandler
+    public void onPreSpawnerSpawn(final PreSpawnerSpawnEvent event) {
+        Location loc = event.getSpawnerLocation();
+        final double r = 24.0;
+        for (Player player : loc.getWorld().getNearbyEntitiesByType(Player.class, loc, r)) {
+            if (player.getGameMode() != GameMode.SPECTATOR && player.getAffectsSpawning()) return;
         }
-        onBreed(event, spawned);
+        event.setCancelled(true);
+    }
+
+    void onVillagerGolemSpawn(final CreatureSpawnEvent event) {
+        Location loc = event.getLocation();
+        final double r = 64.0;
+        for (Player player : loc.getWorld().getNearbyEntitiesByType(Player.class, loc, r)) {
+            if (player.getGameMode() != GameMode.SPECTATOR && player.getAffectsSpawning()) return;
+        }
+        event.setCancelled(true);
     }
 
     static boolean compareEntities(final Entity a, final Entity b) {
@@ -256,10 +264,22 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     }
 
     void onBreed(final CreatureSpawnEvent event, final LivingEntity spawned) {
+        // White-list mob types
+        final EntityType entityType = spawned.getType();
+        switch (entityType) {
+        case CHICKEN: case COW: case MUSHROOM_COW: case PIG: case RABBIT:
+        case SHEEP: case VILLAGER: case BEE: case TURTLE: case LLAMA:
+        case WOLF: case OCELOT: case CAT: case PANDA: case FOX:
+        case IRON_GOLEM: case SNOWMAN:
+            break;
+        default:
+            if (spawned instanceof Animals) break;
+            if (spawned instanceof Ageable) break;
+            return;
+        }
         // Check nearby mobs
         final double r = breedingConfig.maxRadius();
         final Location loc = spawned.getLocation();
-        EntityType entityType = spawned.getType();
         List<Double> nearbys = loc.getWorld().getNearbyEntities(loc, r, r, r)
             .stream()
             .filter(n -> !n.equals(spawned))

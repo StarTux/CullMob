@@ -1,6 +1,5 @@
 package com.cavetale.cullmob;
 
-import com.destroystokyo.paper.event.entity.PreSpawnerSpawnEvent;
 import com.google.gson.Gson;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,9 +25,12 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -163,46 +165,48 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     // Events
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     public void onCreatureSpawn(final CreatureSpawnEvent event) {
         // White-list spawn reasons
-        switch (event.getSpawnReason()) {
+        CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
+        switch (reason) {
         case BREEDING:
         case DISPENSE_EGG:
         case EGG:
         case BUILD_IRONGOLEM:
         case BUILD_SNOWMAN:
             onBreed(event, event.getEntity());
+        default:
             break;
+        }
+        if (event.isCancelled()) return;
+        switch (reason) {
+        case BREEDING: // Passive breeding, like Villagers
         case VILLAGE_DEFENSE:
-            if (event.getEntityType() == EntityType.IRON_GOLEM) {
-                onVillagerGolemSpawn(event);
-            }
+        case NETHER_PORTAL:
+        case BEEHIVE:
+        case PATROL: // Pillagers
+        case EGG:
+            onSpawnFromEnvironment(event, event.getLocation(), 64.0);
             break;
         default:
             return;
         }
     }
 
-    /**
-     * Deny spawner spawning if no nearby player affects mob spawning.
-     * Paper does not check `Player::getAffectsSpawning` for creature
-     * spawners.
-     */
-    @EventHandler
-    public void onPreSpawnerSpawn(final PreSpawnerSpawnEvent event) {
-        Location loc = event.getSpawnerLocation();
-        final double r = 24.0;
-        for (Player player : loc.getWorld().getNearbyEntitiesByType(Player.class, loc, r)) {
-            if (player.getGameMode() != GameMode.SPECTATOR && player.getAffectsSpawning()) return;
-        }
-        event.setCancelled(true);
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
+    public void onSpawnerSpawn(final SpawnerSpawnEvent event) {
+        onSpawnFromEnvironment(event, event.getSpawner().getLocation(),
+                               (double) event.getSpawner().getRequiredPlayerRange());
     }
 
-    void onVillagerGolemSpawn(final CreatureSpawnEvent event) {
-        Location loc = event.getLocation();
-        final double r = 64.0;
-        for (Player player : loc.getWorld().getNearbyEntitiesByType(Player.class, loc, r)) {
+    /**
+     * Deny some spawning situations if no nearby player affects mob
+     * spawning where Paper does not check `affectsSpawning`. Our AFK
+     * plugin manages this value for afk players.
+     */
+    void onSpawnFromEnvironment(final Cancellable event, Location loc, double distance) {
+        for (Player player : loc.getWorld().getNearbyEntitiesByType(Player.class, loc, distance)) {
             if (player.getGameMode() != GameMode.SPECTATOR && player.getAffectsSpawning()) return;
         }
         event.setCancelled(true);

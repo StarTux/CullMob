@@ -30,6 +30,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.SheepRegrowWoolEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -198,6 +199,11 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     public void onSpawnerSpawn(final SpawnerSpawnEvent event) {
         onSpawnFromEnvironment(event, event.getSpawner().getLocation(),
                                (double) event.getSpawner().getRequiredPlayerRange());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
+    public void onSheepRegrowWool(SheepRegrowWoolEvent event) {
+        onSpawnFromEnvironment(event, event.getEntity().getLocation(), 64.0);
     }
 
     /**

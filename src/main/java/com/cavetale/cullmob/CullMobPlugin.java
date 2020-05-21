@@ -186,7 +186,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case BREEDING: // Passive breeding, like Villagers
         case VILLAGE_DEFENSE:
         case NETHER_PORTAL:
-        case BEEHIVE:
+            //case BEEHIVE: // They get deleted!?
         case PATROL: // Pillagers
         case EGG:
             onSpawnFromEnvironment(event, event.getLocation(), 64.0);

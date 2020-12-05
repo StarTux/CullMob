@@ -15,6 +15,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -198,14 +199,23 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         }
         if (event.isCancelled()) return;
         if (reason == CreatureSpawnEvent.SpawnReason.NATURAL) {
-            Chunk chunk = event.getLocation().getChunk();
+            Location loc = event.getLocation();
+            int cx = loc.getBlockX() >> 4;
+            int cz = loc.getBlockZ() >> 4;
+            World w = loc.getWorld();
             int count = 0;
-            for (Entity entity : chunk.getEntities()) {
-                if (entity instanceof Monster) {
-                    count += 1;
-                    if (count >= 1) {
-                        event.setCancelled(true);
-                        return;
+            for (int dz = -1; dz <= 1; dz += 1) {
+                for (int dx = -1; dx <= 1; dx += 1) {
+                    int x = cx + dx;
+                    int z = cz + dz;
+                    if (!w.isChunkLoaded(x, z)) continue;
+                    Chunk chunk = w.getChunkAt(x, z);
+                    for (Entity entity : chunk.getEntities()) {
+                        if (!(entity instanceof Monster)) continue;
+                        if (++count >= 1) {
+                            event.setCancelled(true);
+                            return;
+                        }
                     }
                 }
             }

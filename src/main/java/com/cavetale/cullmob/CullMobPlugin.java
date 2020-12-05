@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Value;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.GameMode;
@@ -51,6 +52,9 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private final ArrayList<IssuedWarning> issuedWarnings = new ArrayList<>();
     /** Currently loaded configuration. */
     private BreedingConfig breedingConfig;
+    private double tps = 20.0;
+    private int cancelCrowd;
+    private int cancelTps;
 
     /**
      * Track why, where, and when a warning was issued.
@@ -97,6 +101,16 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
         loadConf();
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+                tps = Bukkit.getServer().getTPS()[0];
+            }, 20L, 20L);
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+                if (cancelTps > 0 || cancelCrowd > 0) {
+                    getLogger().warning("Cancelled due to tps=" + cancelTps + " crowd=" + cancelCrowd);
+                    cancelTps = 0;
+                    cancelCrowd = 0;
+                }
+            }, 1200L, 1200L);
     }
 
     @Override
@@ -199,6 +213,10 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         }
         if (event.isCancelled()) return;
         if (reason == CreatureSpawnEvent.SpawnReason.NATURAL) {
+            if (tps < 15.0) {
+                event.setCancelled(true);
+                cancelTps += 1;
+            }
             Location loc = event.getLocation();
             int cx = loc.getBlockX() >> 4;
             int cz = loc.getBlockZ() >> 4;
@@ -214,6 +232,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                         if (!(entity instanceof Monster)) continue;
                         if (++count >= 1) {
                             event.setCancelled(true);
+                            cancelCrowd += 1;
                             return;
                         }
                     }

@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Value;
 import org.bukkit.ChatColor;
+import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Sound;
@@ -22,6 +23,7 @@ import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
@@ -193,6 +195,20 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             break;
         default:
             return;
+        }
+        if (event.isCancelled()) return;
+        if (reason == CreatureSpawnEvent.SpawnReason.NATURAL) {
+            Chunk chunk = event.getLocation().getChunk();
+            int count = 0;
+            for (Entity entity : chunk.getEntities()) {
+                if (entity instanceof Monster) {
+                    count += 1;
+                    if (count >= 1) {
+                        event.setCancelled(true);
+                    }
+                    return;
+                }
+            }
         }
     }
 

@@ -205,8 +205,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                     count += 1;
                     if (count >= 1) {
                         event.setCancelled(true);
+                        return;
                     }
-                    return;
                 }
             }
         }

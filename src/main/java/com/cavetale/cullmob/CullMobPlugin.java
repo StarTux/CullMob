@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.stream.Collectors;
 import lombok.Value;
 import org.bukkit.Bukkit;
@@ -55,6 +56,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private double tps = 20.0;
     private int cancelCrowd;
     private int cancelTps;
+    private int spawnNatural;
+    private Random random = new Random();
 
     /**
      * Track why, where, and when a warning was issued.
@@ -105,12 +108,10 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                 tps = Bukkit.getServer().getTPS()[0];
             }, 20L, 20L);
         Bukkit.getScheduler().runTaskTimer(this, () -> {
-                if (cancelTps > 0 || cancelCrowd > 0) {
-                    getLogger().warning("Cancelled due to tps=" + cancelTps + " crowd=" + cancelCrowd);
-                    cancelTps = 0;
-                    cancelCrowd = 0;
-                }
-            }, 1200L, 1200L);
+                cancelTps = 0;
+                cancelCrowd = 0;
+                spawnNatural = 0;
+            }, 600L, 600L);
     }
 
     @Override
@@ -141,6 +142,10 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case "info":
             sender.sendMessage("Breeding: "
                                + new Gson().toJson(breedingConfig));
+            sender.sendMessage("Natural spawns cancelled due to"
+                               + " tps=" + cancelTps + "/" + spawnNatural
+                               + " crowd=" + cancelCrowd + "/" + (spawnNatural - cancelTps)
+                               + " tps=" + String.format("%.2f", tps));
             return true;
         case "list": {
             if (args.length != 0) {
@@ -209,13 +214,15 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             onSpawnFromEnvironment(event, event.getLocation(), 64.0);
             break;
         default:
-            return;
+            break;
         }
         if (event.isCancelled()) return;
         if (reason == CreatureSpawnEvent.SpawnReason.NATURAL) {
-            if (tps < 15.0) {
+            spawnNatural += 1;
+            if (tps < 16.0 && random.nextInt(30) > 0) {
                 event.setCancelled(true);
                 cancelTps += 1;
+                return;
             }
             Location loc = event.getLocation();
             int cx = loc.getBlockX() >> 4;
@@ -230,7 +237,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                     Chunk chunk = w.getChunkAt(x, z);
                     for (Entity entity : chunk.getEntities()) {
                         if (!(entity instanceof Monster)) continue;
-                        if (++count >= 1) {
+                        if (++count >= 9) {
                             event.setCancelled(true);
                             cancelCrowd += 1;
                             return;

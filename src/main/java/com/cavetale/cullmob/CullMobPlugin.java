@@ -1,5 +1,6 @@
 package com.cavetale.cullmob;
 
+import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
 import com.google.gson.Gson;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -190,6 +191,24 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     // Events
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
+    public void onPreCreatureSpawn(final PreCreatureSpawnEvent event) {
+        switch (event.getReason()) {
+        case BREEDING: // Passive breeding, like Villagers
+        case VILLAGE_DEFENSE:
+        case NETHER_PORTAL:
+        case BEEHIVE:
+        case PATROL: // Pillagers
+        case EGG:
+            onSpawnFromEnvironment(event, event.getSpawnLocation(), 64.0);
+            break;
+        case NATURAL:
+            onSpawnNatural(event);
+            break;
+        default: break;
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     public void onCreatureSpawn(final CreatureSpawnEvent event) {
         // White-list spawn reasons
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
@@ -202,49 +221,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             onBreed(event, event.getEntity());
         default:
             break;
-        }
-        if (event.isCancelled()) return;
-        switch (reason) {
-        case BREEDING: // Passive breeding, like Villagers
-        case VILLAGE_DEFENSE:
-        case NETHER_PORTAL:
-        case BEEHIVE:
-        case PATROL: // Pillagers
-        case EGG:
-            onSpawnFromEnvironment(event, event.getLocation(), 64.0);
-            break;
-        default:
-            break;
-        }
-        if (event.isCancelled()) return;
-        if (reason == CreatureSpawnEvent.SpawnReason.NATURAL) {
-            spawnNatural += 1;
-            if (tps < 16.0 && random.nextInt(30) > 0) {
-                event.setCancelled(true);
-                cancelTps += 1;
-                return;
-            }
-            Location loc = event.getLocation();
-            int cx = loc.getBlockX() >> 4;
-            int cz = loc.getBlockZ() >> 4;
-            World w = loc.getWorld();
-            int count = 0;
-            for (int dz = -1; dz <= 1; dz += 1) {
-                for (int dx = -1; dx <= 1; dx += 1) {
-                    int x = cx + dx;
-                    int z = cz + dz;
-                    if (!w.isChunkLoaded(x, z)) continue;
-                    Chunk chunk = w.getChunkAt(x, z);
-                    for (Entity entity : chunk.getEntities()) {
-                        if (!(entity instanceof Monster)) continue;
-                        if (++count >= 9) {
-                            event.setCancelled(true);
-                            cancelCrowd += 1;
-                            return;
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -265,6 +241,37 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         switch (event.getState()) {
         case BITE: event.setCancelled(true);
         default: break;
+        }
+    }
+
+    void onSpawnNatural(PreCreatureSpawnEvent event) {
+        spawnNatural += 1;
+        if (tps < 16.0 && random.nextInt(30) > 0) {
+            event.setCancelled(true);
+            cancelTps += 1;
+            return;
+        }
+        Location loc = event.getSpawnLocation();
+        int cx = loc.getBlockX() >> 4;
+        int cz = loc.getBlockZ() >> 4;
+        World w = loc.getWorld();
+        int count = 0;
+        final int radius = 2;
+        for (int dz = -radius; dz <= radius; dz += 1) {
+            for (int dx = -radius; dx <= radius; dx += 1) {
+                int x = cx + dx;
+                int z = cz + dz;
+                if (!w.isChunkLoaded(x, z)) continue;
+                Chunk chunk = w.getChunkAt(x, z);
+                for (Entity entity : chunk.getEntities()) {
+                    if (!(entity instanceof Monster)) continue;
+                    if (++count >= 16) {
+                        event.setCancelled(true);
+                        cancelCrowd += 1;
+                        return;
+                    }
+                }
+            }
         }
     }
 

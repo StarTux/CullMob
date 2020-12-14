@@ -4,3 +4,6 @@ breeding:
     limit: 100
   warnRadius: 32
   warnTimer: 30
+natural:
+  chunkRadius: 2
+  mobLimit: 32

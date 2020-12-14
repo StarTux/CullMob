@@ -27,7 +27,7 @@ import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Monster;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
@@ -58,6 +58,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private int cancelCrowd;
     private int cancelTps;
     private int spawnNatural;
+    private int naturalChunkRadius;
+    private int naturalMobLimit;
     private Random random = new Random();
 
     /**
@@ -143,6 +145,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case "info":
             sender.sendMessage("Breeding: "
                                + new Gson().toJson(breedingConfig));
+            sender.sendMessage("natural chunkRadius=" + naturalChunkRadius + " mobLimit=" + naturalMobLimit);
             sender.sendMessage("Natural spawns cancelled due to"
                                + " tps=" + cancelTps + "/" + spawnNatural
                                + " crowd=" + cancelCrowd + "/" + (spawnNatural - cancelTps)
@@ -186,6 +189,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     void loadConf() {
         reloadConfig();
         breedingConfig = loadConf("breeding", BreedingConfig.class);
+        naturalChunkRadius = getConfig().getInt("natural.chunkRadius");
+        naturalMobLimit = getConfig().getInt("natural.mobLimit");
     }
 
     // Events
@@ -256,7 +261,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         int cz = loc.getBlockZ() >> 4;
         World w = loc.getWorld();
         int count = 0;
-        final int radius = 2;
+        final int radius = naturalChunkRadius;
         for (int dz = -radius; dz <= radius; dz += 1) {
             for (int dx = -radius; dx <= radius; dx += 1) {
                 int x = cx + dx;
@@ -264,8 +269,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                 if (!w.isChunkLoaded(x, z)) continue;
                 Chunk chunk = w.getChunkAt(x, z);
                 for (Entity entity : chunk.getEntities()) {
-                    if (!(entity instanceof Monster)) continue;
-                    if (++count >= 16) {
+                    if (!(entity instanceof Mob)) continue;
+                    if (++count >= naturalMobLimit) {
                         event.setCancelled(true);
                         cancelCrowd += 1;
                         return;

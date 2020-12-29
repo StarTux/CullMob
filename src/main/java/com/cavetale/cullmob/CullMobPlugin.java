@@ -251,7 +251,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     void onSpawnNatural(PreCreatureSpawnEvent event) {
         spawnNatural += 1;
-        if (tps < 16.0 && random.nextInt(30) > 0) {
+        if (tps < 16.0 && random.nextInt(100) > 0) {
             event.setCancelled(true);
             cancelTps += 1;
             return;

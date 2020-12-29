@@ -1,15 +1,19 @@
 package com.cavetale.cullmob;
 
+import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
 import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
 import com.google.gson.Gson;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.Value;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -61,6 +65,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private int naturalChunkRadius;
     private int naturalMobLimit;
     private Random random = new Random();
+    private final Map<EntityType, Integer> pathfinding = new EnumMap<>(EntityType.class);
 
     /**
      * Track why, where, and when a warning was issued.
@@ -115,6 +120,12 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                 cancelCrowd = 0;
                 spawnNatural = 0;
             }, 600L, 600L);
+        for (EntityType entityType : EntityType.values()) pathfinding.put(entityType, 0);
+    }
+
+    @Override
+    public void onDisable() {
+        printPathfind(Bukkit.getConsoleSender());
     }
 
     @Override
@@ -171,9 +182,23 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                     });
             return true;
         }
+        case "pathfind": {
+            sender.sendMessage("Pathfinder rankings:");
+            printPathfind(sender);
+            return true;
+        }
         default:
             throw new CommandException("Unknown command: " + cmd);
         }
+    }
+
+    void printPathfind(CommandSender sender) {
+        Stream.of(EntityType.values())
+            .filter(e -> pathfinding.get(e) > 0)
+            .sorted((a, b) -> Integer.compare(pathfinding.get(a), pathfinding.get(b)))
+            .forEach(e -> {
+                    sender.sendMessage("PATH " + pathfinding.get(e) + " " + e.name().toLowerCase());
+                });
     }
 
     // Conf
@@ -415,5 +440,11 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                     p.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH,
                                 SoundCategory.MASTER, 1.0f, 1.0f);
                 });
+    }
+
+    @EventHandler
+    void onEntityPathfind(EntityPathfindEvent event) {
+        EntityType entityType = event.getEntity().getType();
+        pathfinding.compute(entityType, (e, i) -> i + 1);
     }
 }

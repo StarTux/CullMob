@@ -3,17 +3,15 @@ package com.cavetale.cullmob;
 import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
 import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
 import com.google.gson.Gson;
+import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.Value;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -58,14 +56,13 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private final ArrayList<IssuedWarning> issuedWarnings = new ArrayList<>();
     /** Currently loaded configuration. */
     private BreedingConfig breedingConfig;
+    private NaturalConfig naturalConfig;
     private double tps = 20.0;
     private int cancelCrowd;
     private int cancelTps;
     private int spawnNatural;
-    private int naturalChunkRadius;
-    private int naturalMobLimit;
     private Random random = new Random();
-    private final Map<EntityType, Integer> pathfinding = new EnumMap<>(EntityType.class);
+    private State state;
 
     /**
      * Track why, where, and when a warning was issued.
@@ -78,24 +75,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         final int y;
         final int z;
         final long time;
-    }
-
-    /**
-     * Configuration deserialized from config.yml.
-     */
-    @Value
-    static final class BreedingConfig {
-        @Value
-        static final class Check {
-            final double radius;
-            final long limit;
-        }
-        List<Check> checks;
-        final double warnRadius;
-        final long warnTimer;
-        double maxRadius() {
-            return checks.stream().mapToDouble(c -> c.radius).max().orElse(0);
-        }
     }
 
     /**
@@ -120,12 +99,12 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                 cancelCrowd = 0;
                 spawnNatural = 0;
             }, 600L, 600L);
-        for (EntityType entityType : EntityType.values()) pathfinding.put(entityType, 0);
+        loadState();
     }
 
     @Override
     public void onDisable() {
-        printPathfind(Bukkit.getConsoleSender());
+        saveState();
     }
 
     @Override
@@ -154,9 +133,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             sender.sendMessage("[CullMob] configuration reloaded.");
             return true;
         case "info":
-            sender.sendMessage("Breeding: "
-                               + new Gson().toJson(breedingConfig));
-            sender.sendMessage("natural chunkRadius=" + naturalChunkRadius + " mobLimit=" + naturalMobLimit);
+            sender.sendMessage("Breeding: " + Json.serialize(breedingConfig));
+            sender.sendMessage("Natural: " + Json.serialize(naturalConfig));
             sender.sendMessage("Natural spawns cancelled due to"
                                + " tps=" + cancelTps + "/" + spawnNatural
                                + " crowd=" + cancelCrowd + "/" + (spawnNatural - cancelTps)
@@ -182,23 +160,17 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                     });
             return true;
         }
-        case "pathfind": {
-            sender.sendMessage("Pathfinder rankings:");
-            printPathfind(sender);
-            return true;
-        }
         default:
             throw new CommandException("Unknown command: " + cmd);
         }
     }
 
-    void printPathfind(CommandSender sender) {
-        Stream.of(EntityType.values())
-            .filter(e -> pathfinding.get(e) > 0)
-            .sorted((a, b) -> Integer.compare(pathfinding.get(a), pathfinding.get(b)))
-            .forEach(e -> {
-                    sender.sendMessage("PATH " + pathfinding.get(e) + " " + e.name().toLowerCase());
-                });
+    void loadState() {
+        state = Json.load(new File(getDataFolder(), "state.json"), State.class, State::new);
+    }
+
+    void saveState() {
+        Json.save(new File(getDataFolder(), "state.json"), state, true);
     }
 
     // Conf
@@ -214,13 +186,13 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     void loadConf() {
         reloadConfig();
         breedingConfig = loadConf("breeding", BreedingConfig.class);
-        naturalChunkRadius = getConfig().getInt("natural.chunkRadius");
-        naturalMobLimit = getConfig().getInt("natural.mobLimit");
+        naturalConfig = loadConf("natural", NaturalConfig.class);
+        naturalConfig.unpack();
     }
 
     // Events
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onPreCreatureSpawn(final PreCreatureSpawnEvent event) {
         switch (event.getReason()) {
         case BREEDING: // Passive breeding, like Villagers
@@ -238,7 +210,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onCreatureSpawn(final CreatureSpawnEvent event) {
         // White-list spawn reasons
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
@@ -276,17 +248,22 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     void onSpawnNatural(PreCreatureSpawnEvent event) {
         spawnNatural += 1;
-        if (tps < 16.0 && random.nextInt(100) > 0) {
-            event.setCancelled(true);
-            cancelTps += 1;
-            return;
-        }
         Location loc = event.getSpawnLocation();
+        if (tps < naturalConfig.tpsThreshold) {
+            if (random.nextDouble() >= naturalConfig.lowTpsSpawnChance) {
+                event.setCancelled(true);
+                cancelTps += 1;
+                return;
+            }
+        }
+        NaturalConfig.World nworld = naturalConfig.worldMap.get(loc.getWorld().getName());
+        if (nworld == null) nworld = naturalConfig.worldMap.get("default");
+        if (nworld == null || !nworld.enabled) return;
         int cx = loc.getBlockX() >> 4;
         int cz = loc.getBlockZ() >> 4;
         World w = loc.getWorld();
         int count = 0;
-        final int radius = naturalChunkRadius;
+        final int radius = nworld.chunkRadius;
         for (int dz = -radius; dz <= radius; dz += 1) {
             for (int dx = -radius; dx <= radius; dx += 1) {
                 int x = cx + dx;
@@ -295,7 +272,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                 Chunk chunk = w.getChunkAt(x, z);
                 for (Entity entity : chunk.getEntities()) {
                     if (!(entity instanceof Mob)) continue;
-                    if (++count >= naturalMobLimit) {
+                    if (++count >= nworld.mobLimit) {
                         event.setCancelled(true);
                         cancelCrowd += 1;
                         return;
@@ -445,6 +422,24 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     @EventHandler
     void onEntityPathfind(EntityPathfindEvent event) {
         EntityType entityType = event.getEntity().getType();
-        pathfinding.compute(entityType, (e, i) -> i + 1);
+        if (tps < 17.0) {
+            switch (entityType) {
+            case VILLAGER:
+            case TRADER_LLAMA:
+            case HORSE:
+            case SHEEP:
+            case IRON_GOLEM:
+            case CHICKEN:
+            case FOX:
+            case TROPICAL_FISH:
+            case COD:
+                if (random.nextInt(20) > 0) {
+                    event.setCancelled(true);
+                    return;
+                }
+            default:
+                break;
+            }
+        }
     }
 }

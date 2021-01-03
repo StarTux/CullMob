@@ -5,5 +5,12 @@ breeding:
   warnRadius: 32
   warnTimer: 30
 natural:
-  chunkRadius: 2
-  mobLimit: 32
+  tpsThreshold: 17.0
+  lowTpsSpawnChance: 0.01
+  worlds:
+  - name: default
+    enabled: false
+  - name: my_world
+    enabled: true
+    chunkRadius: 4
+    mobLimit: 24

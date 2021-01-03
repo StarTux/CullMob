@@ -21,6 +21,7 @@ import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -41,6 +42,8 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.SheepRegrowWoolEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -63,6 +66,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private int spawnNatural;
     private Random random = new Random();
     private State state;
+    private long now;
 
     /**
      * Track why, where, and when a warning was issued.
@@ -93,6 +97,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         loadConf();
         Bukkit.getScheduler().runTaskTimer(this, () -> {
                 tps = Bukkit.getServer().getTPS()[0];
+                now = Instant.now().getEpochSecond();
             }, 20L, 20L);
         Bukkit.getScheduler().runTaskTimer(this, () -> {
                 cancelTps = 0;
@@ -144,7 +149,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             if (args.length != 0) {
                 return false;
             }
-            long now = Instant.now().getEpochSecond();
             sender.sendMessage(issuedWarnings.size()
                                + " recent warnings:");
             issuedWarnings.stream()
@@ -262,23 +266,48 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         int cx = loc.getBlockX() >> 4;
         int cz = loc.getBlockZ() >> 4;
         World w = loc.getWorld();
-        int count = 0;
-        final int radius = nworld.chunkRadius;
-        for (int dz = -radius; dz <= radius; dz += 1) {
-            for (int dx = -radius; dx <= radius; dx += 1) {
-                int x = cx + dx;
-                int z = cz + dz;
-                if (!w.isChunkLoaded(x, z)) continue;
-                Chunk chunk = w.getChunkAt(x, z);
-                for (Entity entity : chunk.getEntities()) {
-                    if (!(entity instanceof Mob)) continue;
-                    if (++count >= nworld.mobLimit) {
-                        event.setCancelled(true);
-                        cancelCrowd += 1;
-                        return;
+        // Get cache
+        ChunkCache chunkCache = null;
+        Block cacheBlock = w.getBlockAt(cx << 4, 0, cz << 4);
+        final String key = "CullMob:ChunkCache";
+        for (MetadataValue metadataValue : cacheBlock.getMetadata(key)) {
+            if (metadataValue.getOwningPlugin() == this) {
+                Object value = metadataValue.value();
+                if (value instanceof ChunkCache) {
+                    chunkCache = (ChunkCache) value;
+                }
+                break;
+            }
+        }
+        if (chunkCache == null) {
+            chunkCache = new ChunkCache();
+            cacheBlock.setMetadata(key, new FixedMetadataValue(this, chunkCache));
+        }
+        int count;
+        if (chunkCache.mobCount > nworld.mobLimit && now - chunkCache.time < 60L) {
+            // Younger than 60 seconds
+            count = chunkCache.mobCount;
+        } else {
+            final int radius = nworld.chunkRadius;
+            count = 0;
+            for (int dz = -radius; dz <= radius; dz += 1) {
+                for (int dx = -radius; dx <= radius; dx += 1) {
+                    int x = cx + dx;
+                    int z = cz + dz;
+                    if (!w.isChunkLoaded(x, z)) continue;
+                    Chunk chunk = w.getChunkAt(x, z);
+                    for (Entity entity : chunk.getEntities()) {
+                        if (!(entity instanceof Mob)) continue;
+                        count += 1;
                     }
                 }
             }
+            chunkCache.mobCount = count;
+            chunkCache.time = now;
+        }
+        if (count > nworld.mobLimit) {
+            event.setCancelled(true);
+            cancelCrowd += 1;
         }
     }
 
@@ -394,10 +423,8 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         int x = loc.getBlockX();
         int y = loc.getBlockY();
         int z = loc.getBlockZ();
-        long now = Instant.now().getEpochSecond();
-        for (Iterator<IssuedWarning> it = issuedWarnings.iterator();
-             it.hasNext();) {
-            IssuedWarning warning = it.next();
+        for (Iterator<IssuedWarning> iter = issuedWarnings.iterator(); iter.hasNext();) {
+            IssuedWarning warning = iter.next();
             if (now - warning.time > breedingConfig.warnTimer) {
                 it.remove();
             } else if (nearby(warning, entityType, world, x, z)) {

@@ -15,13 +15,10 @@ import java.util.stream.Collectors;
 import lombok.Value;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
-import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -29,11 +26,12 @@ import org.bukkit.entity.Ageable;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Fish;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -42,8 +40,6 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.SheepRegrowWoolEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.event.player.PlayerFishEvent;
-import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -59,11 +55,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private final ArrayList<IssuedWarning> issuedWarnings = new ArrayList<>();
     /** Currently loaded configuration. */
     private BreedingConfig breedingConfig;
-    private NaturalConfig naturalConfig;
     private double tps = 20.0;
-    private int cancelCrowd;
-    private int cancelTps;
-    private int spawnNatural;
     private Random random = new Random();
     private State state;
     private long now;
@@ -99,11 +91,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                 tps = Bukkit.getServer().getTPS()[0];
                 now = Instant.now().getEpochSecond();
             }, 20L, 20L);
-        Bukkit.getScheduler().runTaskTimer(this, () -> {
-                cancelTps = 0;
-                cancelCrowd = 0;
-                spawnNatural = 0;
-            }, 600L, 600L);
         loadState();
     }
 
@@ -139,11 +126,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             return true;
         case "info":
             sender.sendMessage("Breeding: " + Json.serialize(breedingConfig));
-            sender.sendMessage("Natural: " + Json.serialize(naturalConfig));
-            sender.sendMessage("Natural spawns cancelled due to"
-                               + " tps=" + cancelTps + "/" + spawnNatural
-                               + " crowd=" + cancelCrowd + "/" + (spawnNatural - cancelTps)
-                               + " tps=" + String.format("%.2f", tps));
             return true;
         case "list": {
             if (args.length != 0) {
@@ -190,8 +172,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     void loadConf() {
         reloadConfig();
         breedingConfig = loadConf("breeding", BreedingConfig.class);
-        naturalConfig = loadConf("natural", NaturalConfig.class);
-        naturalConfig.unpack();
     }
 
     // Events
@@ -206,9 +186,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case PATROL: // Pillagers
         case EGG:
             onSpawnFromEnvironment(event, event.getSpawnLocation(), 64.0);
-            break;
-        case NATURAL:
-            onSpawnNatural(event);
             break;
         default: break;
         }
@@ -247,67 +224,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         switch (event.getState()) {
         case BITE: event.setCancelled(true);
         default: break;
-        }
-    }
-
-    void onSpawnNatural(PreCreatureSpawnEvent event) {
-        spawnNatural += 1;
-        Location loc = event.getSpawnLocation();
-        if (tps < naturalConfig.tpsThreshold) {
-            if (random.nextDouble() >= naturalConfig.lowTpsSpawnChance) {
-                event.setCancelled(true);
-                cancelTps += 1;
-                return;
-            }
-        }
-        NaturalConfig.World nworld = naturalConfig.worldMap.get(loc.getWorld().getName());
-        if (nworld == null) nworld = naturalConfig.worldMap.get("default");
-        if (nworld == null || !nworld.enabled) return;
-        int cx = loc.getBlockX() >> 4;
-        int cz = loc.getBlockZ() >> 4;
-        World w = loc.getWorld();
-        // Get cache
-        ChunkCache chunkCache = null;
-        Block cacheBlock = w.getBlockAt(cx << 4, 0, cz << 4);
-        final String key = "CullMob:ChunkCache";
-        for (MetadataValue metadataValue : cacheBlock.getMetadata(key)) {
-            if (metadataValue.getOwningPlugin() == this) {
-                Object value = metadataValue.value();
-                if (value instanceof ChunkCache) {
-                    chunkCache = (ChunkCache) value;
-                }
-                break;
-            }
-        }
-        if (chunkCache == null) {
-            chunkCache = new ChunkCache();
-            cacheBlock.setMetadata(key, new FixedMetadataValue(this, chunkCache));
-        }
-        int count;
-        if (chunkCache.mobCount > nworld.mobLimit && now - chunkCache.time < 60L) {
-            // Younger than 60 seconds
-            count = chunkCache.mobCount;
-        } else {
-            final int radius = nworld.chunkRadius;
-            count = 0;
-            for (int dz = -radius; dz <= radius; dz += 1) {
-                for (int dx = -radius; dx <= radius; dx += 1) {
-                    int x = cx + dx;
-                    int z = cz + dz;
-                    if (!w.isChunkLoaded(x, z)) continue;
-                    Chunk chunk = w.getChunkAt(x, z);
-                    for (Entity entity : chunk.getEntities()) {
-                        if (!(entity instanceof Mob)) continue;
-                        count += 1;
-                    }
-                }
-            }
-            chunkCache.mobCount = count;
-            chunkCache.time = now;
-        }
-        if (count > nworld.mobLimit) {
-            event.setCancelled(true);
-            cancelCrowd += 1;
         }
     }
 
@@ -426,7 +342,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         for (Iterator<IssuedWarning> iter = issuedWarnings.iterator(); iter.hasNext();) {
             IssuedWarning warning = iter.next();
             if (now - warning.time > breedingConfig.warnTimer) {
-                it.remove();
+                iter.remove();
             } else if (nearby(warning, entityType, world, x, z)) {
                 return;
             }
@@ -448,25 +364,11 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     void onEntityPathfind(EntityPathfindEvent event) {
-        EntityType entityType = event.getEntity().getType();
-        if (tps < 17.0) {
-            switch (entityType) {
-            case VILLAGER:
-            case TRADER_LLAMA:
-            case HORSE:
-            case SHEEP:
-            case IRON_GOLEM:
-            case CHICKEN:
-            case FOX:
-            case TROPICAL_FISH:
-            case COD:
-                if (random.nextInt(20) > 0) {
-                    event.setCancelled(true);
-                    return;
-                }
-            default:
-                break;
-            }
+        if (tps > 17.0) return;
+        Entity entity = event.getEntity();
+        if (entity instanceof Animals || entity instanceof Villager || entity instanceof Fish) {
+            if (random.nextInt(20) == 0) return;
+            event.setCancelled(true);
         }
     }
 }

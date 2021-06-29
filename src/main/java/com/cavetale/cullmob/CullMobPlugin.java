@@ -2,6 +2,7 @@ package com.cavetale.cullmob;
 
 import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
 import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
+import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent;
 import com.google.gson.Gson;
 import java.io.File;
 import java.time.Instant;
@@ -301,7 +302,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case CHICKEN: case COW: case MUSHROOM_COW: case PIG: case RABBIT:
         case SHEEP: case VILLAGER: case BEE: case TURTLE: case LLAMA:
         case WOLF: case OCELOT: case CAT: case PANDA: case FOX:
-        case IRON_GOLEM: case SNOWMAN:
+        case IRON_GOLEM: case SNOWMAN: case GOAT: case AXOLOTL:
             break;
         default:
             if (spawned instanceof Animals) break;
@@ -370,5 +371,12 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             if (random.nextInt(20) == 0) return;
             event.setCancelled(true);
         }
+    }
+
+    @EventHandler
+    void onPlayerElytraBoost(PlayerElytraBoostEvent event) {
+        if (tps > 17.0) return;
+        event.setCancelled(true);
+        event.getPlayer().sendMessage(ChatColor.RED + "Firework boost is restricted due to heavy server load.");
     }
 }

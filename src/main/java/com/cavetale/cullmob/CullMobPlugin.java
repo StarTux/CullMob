@@ -41,7 +41,9 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.SheepRegrowWoolEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerRiptideEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
 /**
  * Main plugin class.
@@ -378,5 +380,20 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         if (tps > 17.0) return;
         event.setCancelled(true);
         event.getPlayer().sendMessage(ChatColor.RED + "Firework boost is restricted due to heavy server load.");
+    }
+
+    @EventHandler
+    void onPlayerRiptide(PlayerRiptideEvent event) {
+        if (tps > 17.0) return;
+        Player player = event.getPlayer();
+        if (!player.isGliding()) return;
+        player.sendMessage(ChatColor.RED + "Riptide is restricted due to heavy server load.");
+        Bukkit.getScheduler().runTask(this, () -> {
+                Vector velo = player.getVelocity();
+                velo.setX(0);
+                velo.setZ(0);
+                player.setVelocity(velo);
+                player.setGliding(false);
+            });
     }
 }

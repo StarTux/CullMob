@@ -1,6 +1,7 @@
 package com.cavetale.cullmob;
 
 import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
+import com.destroystokyo.paper.event.entity.PhantomPreSpawnEvent;
 import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
 import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent;
 import com.google.gson.Gson;
@@ -208,6 +209,19 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         default:
             break;
         }
+    }
+
+    /**
+     * Special case for Phantoms.
+     * Qua PaperMC, `net.minecraft.world.level.levelgen.PhantomSpawner`
+     * spawns phantoms with NATURAL as reason.
+     */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+    public void onPhantomPreSpawn(final PhantomPreSpawnEvent event) {
+        if (!(event.getSpawningEntity() instanceof Player)) return;
+        Player player = (Player) event.getSpawningEntity();
+        if (player.getAffectsSpawning()) return;
+        event.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)

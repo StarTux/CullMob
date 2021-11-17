@@ -3,6 +3,7 @@ package com.cavetale.cullmob;
 import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
 import com.destroystokyo.paper.event.entity.PhantomPreSpawnEvent;
 import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
+import com.destroystokyo.paper.event.entity.PreSpawnerSpawnEvent;
 import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent;
 import com.google.gson.Gson;
 import java.io.File;
@@ -228,6 +229,15 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     public void onSpawnerSpawn(final SpawnerSpawnEvent event) {
         onSpawnFromEnvironment(event, event.getSpawner().getLocation(),
                                (double) event.getSpawner().getRequiredPlayerRange());
+    }
+
+    /**
+     * Handle PreSpawnerSpawnEvent.
+     * Known issue: We assume the default spawner range of 16 blocks.
+     */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
+    public void onPreSpawnerSpawn(final PreSpawnerSpawnEvent event) {
+        onSpawnFromEnvironment(event, event.getSpawnerLocation(), 16.0);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)

@@ -6,7 +6,6 @@ import com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent;
 import com.destroystokyo.paper.event.entity.PreSpawnerSpawnEvent;
 import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent;
 import com.google.gson.Gson;
-import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,7 +61,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     private BreedingConfig breedingConfig;
     private double tps = 20.0;
     private Random random = new Random();
-    private State state;
     private long now;
 
     /**
@@ -89,19 +87,16 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
         loadConf();
         Bukkit.getScheduler().runTaskTimer(this, () -> {
                 tps = Bukkit.getServer().getTPS()[0];
                 now = Instant.now().getEpochSecond();
             }, 20L, 20L);
-        loadState();
     }
 
     @Override
     public void onDisable() {
-        saveState();
     }
 
     @Override
@@ -151,20 +146,14 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                     });
             return true;
         }
+        case "save":
+            saveDefaultConfig();
+            sender.sendMessage("Default config saved");
+            return true;
         default:
             throw new CommandException("Unknown command: " + cmd);
         }
     }
-
-    void loadState() {
-        state = Json.load(new File(getDataFolder(), "state.json"), State.class, State::new);
-    }
-
-    void saveState() {
-        Json.save(new File(getDataFolder(), "state.json"), state, true);
-    }
-
-    // Conf
 
     <T> T loadConf(final String key, final Class<T> type) {
         Gson gson = new Gson();
@@ -178,8 +167,6 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         reloadConfig();
         breedingConfig = loadConf("breeding", BreedingConfig.class);
     }
-
-    // Events
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onPreCreatureSpawn(final PreCreatureSpawnEvent event) {

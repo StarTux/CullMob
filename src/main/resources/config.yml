@@ -1,6 +1,24 @@
 breeding:
   checks:
-  - radius: 6
-    limit: 100
-  warnRadius: 32
-  warnTimer: 30
+  - radius: 0.5 
+    limit: 4
+  - radius: 4.5 
+    limit: 40
+  - radius: 10
+    limit: 200
+  warnRadius: 24
+  warnTimer: 60
+natural:
+  tpsThreshold: 17.0
+  lowTpsSpawnChance: 0.01
+  worlds:
+  - name: default
+    enabled: false
+  - name: home
+    enabled: true
+    chunkRadius: 4
+    mobLimit: 16
+  - name: mine
+    enabled: true
+    chunkRadius: 4
+    mobLimit: 8

@@ -1,7 +1,7 @@
 main: com.cavetale.cullmob.CullMobPlugin
 name: CullMob
 version: 0.1
-api-version: 1.17
+api-version: 1.19
 description: Reduce large clusters of mobs
 author: StarTux
 website: https://cavetale.com
@@ -12,9 +12,10 @@ commands:
     description: CullMob Command
     permission: cullmob.cullmob
     usage: |-
-      /cullmob reload - Reload config.
-      /cullmob list - List recent actions.
-      /cullmob info - Show config info.
+      /cullmob reload - Reload config
+      /cullmob list - List recent actions
+      /cullmob info - Show config info
+      /cullmob save - Save default config
 permissions:
   cullmob.cullmob:
     description: Use /cullmob

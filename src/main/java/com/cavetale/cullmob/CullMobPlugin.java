@@ -158,7 +158,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     <T> T loadConf(final String key, final Class<T> type) {
         Gson gson = new Gson();
         ConfigurationSection cfg
-            = Objects.requireNonNull(getConfig().getConfigurationSection(key));
+            = Objects.requireNonNull(getConfig().getConfigurationSection(key).getDefaultSection());
         String json = gson.toJson(cfg.getValues(false));
         return gson.fromJson(json, type);
     }

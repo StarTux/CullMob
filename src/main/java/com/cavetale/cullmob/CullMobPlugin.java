@@ -177,6 +177,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case BEEHIVE:
         case PATROL: // Pillagers
         case EGG:
+        case METAMORPHOSIS:
             onSpawnFromEnvironment(event, event.getSpawnLocation(), 64.0);
             break;
         default: break;
@@ -254,6 +255,13 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     }
 
     static boolean compareEntities(final Entity a, final Entity b) {
+        switch (a.getType()) {
+        case FROG:
+        case TADPOLE:
+            return b.getType() == EntityType.FROG
+                || b.getType() == EntityType.TADPOLE;
+        default: break;
+        }
         if (a.getType() != b.getType()) {
             return false;
         }
@@ -312,10 +320,27 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         // White-list mob types
         final EntityType entityType = spawned.getType();
         switch (entityType) {
-        case CHICKEN: case COW: case MUSHROOM_COW: case PIG: case RABBIT:
-        case SHEEP: case VILLAGER: case BEE: case TURTLE: case LLAMA:
-        case WOLF: case OCELOT: case CAT: case PANDA: case FOX:
-        case IRON_GOLEM: case SNOWMAN: case GOAT: case AXOLOTL:
+        case AXOLOTL:
+        case BEE:
+        case CAT:
+        case CHICKEN:
+        case COW:
+        case FOX:
+        case FROG:
+        case GOAT:
+        case IRON_GOLEM:
+        case LLAMA:
+        case MUSHROOM_COW:
+        case OCELOT:
+        case PANDA:
+        case PIG:
+        case RABBIT:
+        case SHEEP:
+        case SNOWMAN:
+        case TADPOLE:
+        case TURTLE:
+        case VILLAGER:
+        case WOLF:
             break;
         default:
             if (spawned instanceof Animals) break;

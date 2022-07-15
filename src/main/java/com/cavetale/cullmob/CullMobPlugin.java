@@ -194,6 +194,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case EGG:
         case BUILD_IRONGOLEM:
         case BUILD_SNOWMAN:
+        case METAMORPHOSIS:
             onBreed(event, event.getEntity());
         default:
             break;
@@ -247,7 +248,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
      * spawning where Paper does not check `affectsSpawning`. Our AFK
      * plugin manages this value for afk players.
      */
-    void onSpawnFromEnvironment(final Cancellable event, Location loc, double distance) {
+    private void onSpawnFromEnvironment(final Cancellable event, Location loc, double distance) {
         for (Player player : loc.getWorld().getNearbyEntitiesByType(Player.class, loc, distance)) {
             if (player.getGameMode() != GameMode.SPECTATOR && player.getAffectsSpawning()) return;
         }
@@ -318,15 +319,13 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     void onBreed(final CreatureSpawnEvent event, final LivingEntity spawned) {
         // White-list mob types
-        final EntityType entityType = spawned.getType();
-        switch (entityType) {
+        switch (spawned.getType()) {
         case AXOLOTL:
         case BEE:
         case CAT:
         case CHICKEN:
         case COW:
         case FOX:
-        case FROG:
         case GOAT:
         case IRON_GOLEM:
         case LLAMA:
@@ -347,9 +346,17 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             if (spawned instanceof Ageable) break;
             return;
         }
-        // Check nearby mobs
+        checkNearbyMobs(spawned, event);
+    }
+
+    /**
+     * Check if there are too many nearby mobs.
+     * @return true if spawning was denied, false otherwise.
+     */
+    private boolean checkNearbyMobs(LivingEntity spawned, Cancellable event) {
         final double r = breedingConfig.maxRadius();
         final Location loc = spawned.getLocation();
+        final EntityType entityType = spawned.getType();
         List<Double> nearbys = loc.getWorld().getNearbyEntities(loc, r, r, r)
             .stream()
             .filter(n -> !n.equals(spawned))
@@ -366,7 +373,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                 break;
             }
         }
-        if (failedCheck == null) return;
+        if (failedCheck == null) return false;
         // Do the thing.
         event.setCancelled(true);
         getLogger().info("[Breeding] Denied " + human(entityType) + " at "
@@ -383,7 +390,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             if (now - warning.time > breedingConfig.warnTimer) {
                 iter.remove();
             } else if (nearby(warning, entityType, world, x, z)) {
-                return;
+                return false;
             }
         }
         issuedWarnings.add(new IssuedWarning(entityType,
@@ -399,6 +406,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
                     p.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH,
                                 SoundCategory.MASTER, 1.0f, 1.0f);
                 });
+        return true;
     }
 
     @EventHandler

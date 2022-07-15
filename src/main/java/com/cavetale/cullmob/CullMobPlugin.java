@@ -67,7 +67,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
      * Track why, where, and when a warning was issued.
      */
     @Value
-    static class IssuedWarning {
+    private static class IssuedWarning {
         final EntityType entityType;
         final String world;
         final int x;
@@ -79,7 +79,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     /**
      * Thrown by `onCommand()` and its methods.
      */
-    static class CommandException extends Exception {
+    private static class CommandException extends Exception {
         CommandException(final String message) {
             super(message);
         }
@@ -155,7 +155,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    <T> T loadConf(final String key, final Class<T> type) {
+    private <T> T loadConf(final String key, final Class<T> type) {
         Gson gson = new Gson();
         ConfigurationSection cfg
             = Objects.requireNonNull(getConfig().getConfigurationSection(key).getDefaultSection());
@@ -163,13 +163,13 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         return gson.fromJson(json, type);
     }
 
-    void loadConf() {
+    private void loadConf() {
         reloadConfig();
         breedingConfig = loadConf("breeding", BreedingConfig.class);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
-    public void onPreCreatureSpawn(final PreCreatureSpawnEvent event) {
+    private void onPreCreatureSpawn(final PreCreatureSpawnEvent event) {
         switch (event.getReason()) {
         case BREEDING: // Passive breeding, like Villagers
         case VILLAGE_DEFENSE:
@@ -185,7 +185,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
-    public void onCreatureSpawn(final CreatureSpawnEvent event) {
+    private void onCreatureSpawn(final CreatureSpawnEvent event) {
         // White-list spawn reasons
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
         switch (reason) {
@@ -194,8 +194,13 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case EGG:
         case BUILD_IRONGOLEM:
         case BUILD_SNOWMAN:
-        case METAMORPHOSIS:
-            onBreed(event, event.getEntity());
+            onBreed(event.getEntity(), event);
+            break;
+        case DEFAULT:
+            if (event.getEntity().getType() == EntityType.TADPOLE) {
+                onBreed(event.getEntity(), event);
+            }
+            break;
         default:
             break;
         }
@@ -207,7 +212,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
      * spawns phantoms with NATURAL as reason.
      */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
-    public void onPhantomPreSpawn(final PhantomPreSpawnEvent event) {
+    private void onPhantomPreSpawn(final PhantomPreSpawnEvent event) {
         if (!(event.getSpawningEntity() instanceof Player)) return;
         Player player = (Player) event.getSpawningEntity();
         if (player.getAffectsSpawning()) return;
@@ -215,7 +220,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
-    public void onSpawnerSpawn(final SpawnerSpawnEvent event) {
+    private void onSpawnerSpawn(final SpawnerSpawnEvent event) {
         onSpawnFromEnvironment(event, event.getSpawner().getLocation(),
                                (double) event.getSpawner().getRequiredPlayerRange());
     }
@@ -225,17 +230,17 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
      * Known issue: We assume the default spawner range of 16 blocks.
      */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
-    public void onPreSpawnerSpawn(final PreSpawnerSpawnEvent event) {
+    private void onPreSpawnerSpawn(final PreSpawnerSpawnEvent event) {
         onSpawnFromEnvironment(event, event.getSpawnerLocation(), 16.0);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
-    public void onSheepRegrowWool(SheepRegrowWoolEvent event) {
+    private void onSheepRegrowWool(SheepRegrowWoolEvent event) {
         onSpawnFromEnvironment(event, event.getEntity().getLocation(), 64.0);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
-    public void onPlayerFish(PlayerFishEvent event) {
+    private void onPlayerFish(PlayerFishEvent event) {
         if (event.getPlayer().getAffectsSpawning()) return;
         switch (event.getState()) {
         case BITE: event.setCancelled(true);
@@ -255,7 +260,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         event.setCancelled(true);
     }
 
-    static boolean compareEntities(final Entity a, final Entity b) {
+    private static boolean compareEntities(final Entity a, final Entity b) {
         switch (a.getType()) {
         case FROG:
         case TADPOLE:
@@ -287,7 +292,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         return true;
     }
 
-    boolean nearby(final IssuedWarning warning, final EntityType entityType,
+    private boolean nearby(final IssuedWarning warning, final EntityType entityType,
                    final String world, final int x, final int z) {
         if (entityType != warning.entityType
             || !warning.world.equals(world)) {
@@ -298,7 +303,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             && (double) Math.abs(warning.z - z) <= r;
     }
 
-    boolean nearby(final Location loc, final String world,
+    private boolean nearby(final Location loc, final String world,
                    final int x, final int z) {
         if (!loc.getWorld().getName().equals(world)) {
             return false;
@@ -308,24 +313,25 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
             && Math.abs(loc.getZ() - (double) z) <= r;
     }
 
-    static String human(Enum e) {
+    private static String human(Enum e) {
         return e.name().toLowerCase().replace("_", " ");
     }
 
-    static String toString(Location loc) {
+    private static String toString(Location loc) {
         return loc.getWorld().getName() + ":"
             + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
     }
 
-    void onBreed(final CreatureSpawnEvent event, final LivingEntity spawned) {
+    private void onBreed(final LivingEntity entity, Cancellable event) {
         // White-list mob types
-        switch (spawned.getType()) {
+        switch (entity.getType()) {
         case AXOLOTL:
         case BEE:
         case CAT:
         case CHICKEN:
         case COW:
         case FOX:
+        case FROG:
         case GOAT:
         case IRON_GOLEM:
         case LLAMA:
@@ -342,25 +348,25 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case WOLF:
             break;
         default:
-            if (spawned instanceof Animals) break;
-            if (spawned instanceof Ageable) break;
+            if (entity instanceof Animals) break;
+            if (entity instanceof Ageable) break;
             return;
         }
-        checkNearbyMobs(spawned, event);
+        checkNearbyMobs(entity, event);
     }
 
     /**
      * Check if there are too many nearby mobs.
      * @return true if spawning was denied, false otherwise.
      */
-    private boolean checkNearbyMobs(LivingEntity spawned, Cancellable event) {
+    private boolean checkNearbyMobs(LivingEntity entity, Cancellable event) {
         final double r = breedingConfig.maxRadius();
-        final Location loc = spawned.getLocation();
-        final EntityType entityType = spawned.getType();
+        final Location loc = entity.getLocation();
+        final EntityType entityType = entity.getType();
         List<Double> nearbys = loc.getWorld().getNearbyEntities(loc, r, r, r)
             .stream()
-            .filter(n -> !n.equals(spawned))
-            .filter(n -> compareEntities(spawned, n))
+            .filter(n -> !n.equals(entity))
+            .filter(n -> compareEntities(entity, n))
             .map(n -> loc.distance(n.getLocation()))
             .collect(Collectors.toList());
         BreedingConfig.Check failedCheck = null;
@@ -410,7 +416,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    void onEntityPathfind(EntityPathfindEvent event) {
+    private void onEntityPathfind(EntityPathfindEvent event) {
         if (tps > 17.0) return;
         Entity entity = event.getEntity();
         if (entity instanceof Animals || entity instanceof Villager || entity instanceof Fish) {
@@ -420,14 +426,14 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    void onPlayerElytraBoost(PlayerElytraBoostEvent event) {
+    private void onPlayerElytraBoost(PlayerElytraBoostEvent event) {
         if (tps > 17.0) return;
         event.setCancelled(true);
         event.getPlayer().sendMessage(ChatColor.RED + "Firework boost is restricted due to heavy server load.");
     }
 
     @EventHandler
-    void onPlayerRiptide(PlayerRiptideEvent event) {
+    private void onPlayerRiptide(PlayerRiptideEvent event) {
         if (tps > 17.0) return;
         Player player = event.getPlayer();
         if (!player.isGliding()) return;

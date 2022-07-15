@@ -1,7 +1,9 @@
 breeding:
   checks:
   - radius: 0.5 
-    limit: 4
+    limit: 2
+  - radius: 2
+    limit: 10
   - radius: 4.5 
     limit: 40
   - radius: 10

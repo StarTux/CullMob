@@ -1,13 +1,9 @@
 breeding:
   checks:
-  - radius: 0.5 
-    limit: 2
-  - radius: 2
-    limit: 10
   - radius: 4.5 
     limit: 40
-  - radius: 10
-    limit: 200
+  - radius: 7.5
+    limit: 112
   warnRadius: 24
   warnTimer: 60
 natural:

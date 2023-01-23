@@ -170,6 +170,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     private void onPreCreatureSpawn(final PreCreatureSpawnEvent event) {
+        if (tps > 19.0) return;
         switch (event.getReason()) {
         case BREEDING: // Passive breeding, like Villagers
         case VILLAGE_DEFENSE:
@@ -186,6 +187,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     private void onCreatureSpawn(final CreatureSpawnEvent event) {
+        if (tps > 19.0) return;
         // White-list spawn reasons
         CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
         switch (reason) {
@@ -213,6 +215,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
      */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     private void onPhantomPreSpawn(final PhantomPreSpawnEvent event) {
+        if (tps > 19.0) return;
         if (!(event.getSpawningEntity() instanceof Player)) return;
         Player player = (Player) event.getSpawningEntity();
         if (player.getAffectsSpawning()) return;
@@ -221,6 +224,7 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     private void onSpawnerSpawn(final SpawnerSpawnEvent event) {
+        if (tps > 19.0) return;
         onSpawnFromEnvironment(event, event.getSpawner().getLocation(),
                                (double) event.getSpawner().getRequiredPlayerRange());
     }
@@ -231,16 +235,19 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
      */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     private void onPreSpawnerSpawn(final PreSpawnerSpawnEvent event) {
+        if (tps > 19.0) return;
         onSpawnFromEnvironment(event, event.getSpawnerLocation(), 16.0);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     private void onSheepRegrowWool(SheepRegrowWoolEvent event) {
+        if (tps > 19.0) return;
         onSpawnFromEnvironment(event, event.getEntity().getLocation(), 64.0);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
     private void onPlayerFish(PlayerFishEvent event) {
+        if (tps > 19.0) return;
         if (event.getPlayer().getAffectsSpawning()) return;
         switch (event.getState()) {
         case BITE: event.setCancelled(true);

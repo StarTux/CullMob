@@ -342,13 +342,13 @@ public final class CullMobPlugin extends JavaPlugin implements Listener {
         case GOAT:
         case IRON_GOLEM:
         case LLAMA:
-        case MUSHROOM_COW:
+        case MOOSHROOM:
         case OCELOT:
         case PANDA:
         case PIG:
         case RABBIT:
         case SHEEP:
-        case SNOWMAN:
+        case SNOW_GOLEM:
         case TADPOLE:
         case TURTLE:
         case VILLAGER:
